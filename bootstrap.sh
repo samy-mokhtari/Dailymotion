@@ -11,21 +11,18 @@
 #    - Create a virtual environment in backend/.venv (if missing)
 #    - Upgrade pip
 #    - Install required tooling: pre-commit, ruff, pytest
-# 2) Frontend (Node):
-#    - Run `npm install` inside frontend/ (if package.json exists)
-# 3) Git hooks:
+# 2) Git hooks:
 #    - Migrate pre-commit config to the latest schema (safe to run repeatedly)
 #    - Install pre-commit hooks for commit + pre-push stages
-# 4) Validation:
+# 3) Validation:
 #    - Optionally run pre-commit across the whole repo to catch issues early
 #
 # Assumptions / Requirements
 # - Python is available on PATH (for venv creation).
-# - Node + npm are available on PATH (for frontend install).
 # - Run from the repository root (or any folder; the script resolves its own location).
 #
 # Notes
-# - backend/.venv and frontend/node_modules are local artifacts and must be gitignored.
+# - backend/.venv is local artifacts and must be gitignored.
 # - This script is safe to re-run; it will reuse existing environments where possible.
 # ------------------------------------------------------------------------------
 set -euo pipefail
@@ -45,21 +42,14 @@ fi
 "$PY" -m pip install -U pip
 "$PY" -m pip install -U pre-commit ruff pytest
 
-echo "[2/5] Frontend: install node dependencies (if package.json exists)"
-if [ -f "$ROOT/frontend/package.json" ]; then
-    (cd "$ROOT/frontend" && npm install)
-else
-    echo "  - Skipped: frontend/package.json not found"
-fi
-
-echo "[3/5] pre-commit: migrate config (safe) + install hooks"
+echo "[2/4] pre-commit: migrate config (safe) + install hooks"
 "$PY" -m pre_commit migrate-config || true
 "$PY" -m pre_commit install
 "$PY" -m pre_commit install --hook-type pre-push
 
-echo "[4/5] pre-commit: initial run (optional but useful)"
+echo "[3/4] pre-commit: initial run (optional but useful)"
 "$PY" -m pre_commit run --all-files || true
 "$PY" -m pre_commit run --hook-stage pre-push --all-files || true
 
-echo "[5/5] Done."
+echo "[4/4] Done."
 echo "Next: commit your changes; hooks will run automatically on commit/push."

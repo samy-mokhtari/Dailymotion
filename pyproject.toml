@@ -1,0 +1,22 @@
+# Moderation Tool — Shared development tooling configuration
+# Purpose:
+# - Centralize linting and test configuration for the whole monorepo.
+# - Keep a single source of truth for code quality rules across both backend services.
+# Notes:
+# - Runtime dependencies should remain service-specific.
+# - This file is for shared developer tooling only.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["services"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = [
+  "services/moderation_api/tests",
+  "services/proxy_api/tests",
+]
