@@ -1,146 +1,164 @@
-# basic_structure
+# Building a Moderation tool
 
-A project template for **Python backend + React/TypeScript frontend + Docs**, including local quality gates (pre-commit) and a bootstrap script for quick setup.
+## Intro
 
-## Repository layout
+Dailymotion is building a backend tool to track the moderation actions made on the uploaded
+videos and you're the software architect.
 
-```text
-.
-├── backend/
-├── frontend/
-├── doc/
-├── scripts/
-├── .pre-commit-config.yaml
-├── .gitignore
-├── docker-compose.yml
-└── README.md
-```
+The frontend team has already built a slick moderation UI (the "Moderation Console UI"),
+they now need the backend server to connect to.
 
-## Prerequisites
+The API is splited in two services: the Moderation Queue and the Dailymotion API Proxy.
+You
 
-- **Git**
-- **Python** (recommended: 3.11+)
-- **Node.js + npm**
-- (optional) **Docker Desktop** if you use `docker-compose.yml`
+## Your task
 
-## Quick start
+The task is to create both services: the Moderation Queue and the Dailymotion API Proxy.
 
-### 1) Clone the repository
+<details>
+<summary>
+When a new video is uploaded on Dailymotion, a server-to-server POST request is sent to your Moderation Queue web service with the video id:
+</summary>
 
 ```bash
-git clone <repo>
-cd basic_structure
+$ curl -XPOST $MODERATION_QUEUE_SERVER/add_video -d '{ "video_id": 123456 }'
+<< HTTP 201
 ```
 
-### 2) Bootstrap (recommended)
+</details>
 
-> On Windows, run `bootstrap.sh` via **Git Bash** or **WSL**.
+<details>
+<summary>
+When a moderator connects to the Moderation console UI, the UI will fetch the next **PENDING** video to moderate with.
+</summary>
+
+Notice for each request, UI will append a `Authorization` header with moderator name encoded in base64.
 
 ```bash
-chmod +x bootstrap.sh
-./bootstrap.sh
+# base64 encode of "john.doe" is "am9obi5kb2U="
+$ curl -XGET $MODERATION_QUEUE_SERVER/get_video --header 'Authorization: am9obi5kb2U='
+<< HTTP 200
+{
+  "video_id": 123456
+}
 ```
 
-This script:
+Also notice video in Moderation Queue is ordered by First-In-First-Out, same moderator will get same video when repeat call this endpoint. different moderator should get different video when call this endpoint.
 
-- creates `backend/.venv`
-- installs `pre-commit`, `ruff`, and `pytest`
-- installs Node dependencies in `frontend/`
-- installs Git hooks (`pre-commit` + `pre-push`)
-- runs an initial validation (best effort)
+</details>
 
-## Quality gates (pre-commit)
+<details>
+<summary>
+Then the Moderation Console UI will query your "Dailymotion API Proxy" with the returned video_id
+to retrieve all the information required to show the video to the moderator.
+</summary>
 
-Hooks run automatically:
-
-### On every commit
-
-- File hygiene: EOF, trailing whitespace, YAML validity, merge conflict markers, large files
-- **Backend**: `ruff format` + `ruff check`
-- **Frontend**: `prettier` + `eslint --fix`
-
-### On every push (pre-push)
-
-- **Backend**: `pytest` (via `scripts/run_pytest.py`, which can auto-setup the venv if needed)
-
-### Run manually
+And your "Dailymotion API Proxy" will query the Dailymotion API (https://developer.dailymotion.com/api)
+and acts as a proxy. For this specific test, for any video requested your service can just returns
+the information for this video: http://www.dailymotion.com/video/x2m8jpp
+eg.
 
 ```bash
-# Run all commit-stage hooks across the whole repo
-pre-commit run --all-files
-
-# Run the hooks configured for pre-push
-pre-commit run --hook-stage pre-push --all-files
+$ curl -XGET $DAILYMOTION_API_PROXY/get_video_info/123456
+<< HTTP 200
+{
+  "title": "Dailymotion Spirit Movie",
+  "channel": "creation",
+  "owner": ...,
+  "filmstrip_60_url": ...,
+  "embed_url": ...
+}
 ```
 
-## Backend (Python)
+Notice: for this test, all video id ends with 404 (404, 1404, 10404, ...) are consider as not exists (HTTP 404)
 
-### Virtual environment
+</details>
 
-The venv lives here:
-
-- `backend/.venv/` (gitignored)
-
-### Dev / test dependencies
-
-- `backend/requirements-dev.txt`
-
-### Run tests
+<details>
+<summary>
+Once the moderator has viewed the video, he should takes action and flags the **PENDING** video as "spam" or "not spam".
+</summary>
 
 ```bash
-# From repository root
-python scripts/run_pytest.py
+$ curl -XPOST $MODERATION_QUEUE_SERVER/flag_video -d '{ "video_id" : 123456, "status": "not spam" }  --header 'Authorization: am9obi5kb2U='
+<< HTTP 200
+{
+  "video_id": 123456,
+  "status": "not spam"
+}
 ```
 
-Or (if your venv is activated):
+</details>
+
+<details>
+<summary>
+Also, we need to expose a endpoint for administrator to monitoring service status. this endpoint will return the number of videos in the queue and number of videos flagged as spam and not spam.
+</summary>
 
 ```bash
-cd backend
-python -m pytest -q
+$ curl -XGET $MODERATION_QUEUE_SERVER/stats
+<< HTTP 200
+{
+  "total_pending_videos": ...,
+  "total_spam_videos": ...,
+  "total_not_spam_videos": ...
+}
 ```
 
-## Frontend (React / TypeScript)
+</details>
 
-Node dependencies are local to the project:
-
-- `frontend/package.json` + lockfile
-- `frontend/node_modules/` (gitignored)
-
-### Install
+<details>
+<summary>
+Finally, we need to expose a endpoint to review video moderation history for audit purpose.
+</summary>
 
 ```bash
-cd frontend
-npm install
+$ curl -XGET $MODERATION_QUEUE_SERVER/log_video/123456
+<< HTTP 200
+[
+  {"date": "2000-01-01 12:00:00", "status": "pending", "moderator": null },
+  {"date": "2000-01-01 13:00:00", "status": "spam", "moderator": "john.doe"}
+]
 ```
 
-### Lint / format
+</details>
 
-```bash
-cd frontend
-npm run lint
-npm run lint:fix
-npm run format
+## Summary
+
+```
+                              Moderation Console UI (nothing to build)
+                               /           \
+                             /               \
+                           /                   \
+              Moderation console API         Dailymotion API Proxy
+                * add_video                    * get_video_info
+                * get_video
+                * flag_video
+                * stats
+                * log_video
 ```
 
-## Docker (optional)
+The Moderation Console API must support the following use cases:
 
-The `docker-compose.yml` file is intentionally minimal in this template.
+- Add a new uploaded video
+- Get the next video to moderate
+- Update a video status (spam or not spam)
+- Multiple moderators must be able to work at the same time, they should always work on different videos.
+- Monitoring queue status
+- View moderation history of a video
+- The service should be restartable without losing any data
 
-```bash
-docker compose up -d
-docker compose down
-```
+The Dailymotion API Proxy should implement a caching system and handle nicely API errors
 
-## Conventions
+## What do we expect
 
-- **One formatter per stack**:
-  - Backend: Ruff (format + lint)
-  - Frontend: Prettier (format) + ESLint (quality)
-- Do not commit:
-  - `backend/.venv/`
-  - `frontend/node_modules/`
-  - build outputs / caches
-
-## License
-
-TBD.
+- PHP or Python languages are supported. Choose the one that you master the most.
+- We expect to have a level of code quality which could go to production.
+- Using frameworks is allowed only for routing, dependency injection, event dispatcher, db connection. Don't use magic (ORM for example)! We want to see your implementation.
+- Use the DBMS you want (except SQLite).
+- Your code should be tested.
+- Your application has to run within a docker containers.
+- You can use AI to help you, but in a smart way. However, please make iterative commits as we analyze them to understand your development reasoning (not all the code in 1 or 2 commits).
+- You should provide us the link to GitHub.
+- You should provide us the instructions to run your code and your tests. We should not install anything except docker/docker-compose to run you project.
+- You should provide us an architecture schema.
