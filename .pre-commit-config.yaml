@@ -1,0 +1,69 @@
+# pre-commit configuration
+#
+# Purpose
+# - Enforce consistent code quality locally before changes reach GitHub.
+# - Keep this repository "showcase-ready" (clean diffs, readable code, fewer regressions).
+#
+# What runs when
+# - On commit:
+#   - Generic hygiene checks (whitespace, EOF, YAML validity, merge conflict markers, big files)
+#   - Backend (Python): Ruff formatter + linter (with auto-fix; fails if fixes were applied)
+#   - Frontend (TS/React): Prettier + ESLint (auto-fix) on frontend files only
+# - On push:
+#   - Backend tests via pytest (to prevent pushing broken code)
+#
+# Notes / Assumptions
+# - This file must stay at the repository root (Git hooks are repo-scoped).
+# - Backend hooks (ruff/pytest) use `language: system`:
+#   - Run git commit/push from a terminal where the backend venv is active (so `python`, `ruff` are available).
+# - Frontend hooks use `npx --no-install`:
+#   - Requires `npm install` already run in `frontend/` (so Prettier/ESLint exist in node_modules).
+# - Paths are intentionally scoped to avoid running unrelated checks (backend vs
+
+repos:
+  # Basic showcase: file cleanliness
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  # Backend: Ruff managed by pre-commit (no venv required for ruff)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.8
+    hooks:
+      - id: ruff-format
+        name: ruff format (backend)
+        files: ^backend/
+      - id: ruff
+        name: ruff check (backend)
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+
+  # Local hooks: pytest + frontend tooling
+  - repo: local
+    hooks:
+      # Backend tests on push (requires python env available)
+      - id: pytest
+        name: pytest (backend)
+        entry: python scripts/run_pytest.py
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^backend/
+
+      # Frontend formatting/linting (uses deps installed in frontend/)
+      - id: prettier
+        name: prettier (frontend)
+        entry: npx --prefix frontend --no-install prettier --write --config frontend/.prettierrc.json
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|scss|md|yml|yaml)$
+
+      - id: eslint
+        name: eslint (frontend)
+        entry: npx --prefix frontend --no-install eslint --fix --max-warnings=0 --config frontend/eslint.config.js
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$

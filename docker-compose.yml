@@ -1,0 +1,19 @@
+# ------------------------------------------------------------------------------
+# docker-compose.yml
+#
+# Purpose
+# - Local development orchestration for the project.
+# - Provide a reproducible way to run required services (DB, cache, queues, etc.)
+#   without installing them globally on the host machine.
+#
+# How this file is used
+# - Developers run: `docker compose up -d` to start dependencies.
+# - CI may validate the configuration via: `docker compose config -q`.
+#
+# Notes
+# - This file is intentionally minimal in the template.
+# - Add services as the project evolves (e.g., postgres, redis, backend, frontend).
+# - Keep secrets out of this file; prefer environment variables and/or .env files
+#   (which should be gitignored if they contain sensitive values).
+# ------------------------------------------------------------------------------
+services: {}
