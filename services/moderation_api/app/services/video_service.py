@@ -1,7 +1,13 @@
 from app.db.connection import transaction
-from app.db.repositories.video_repository import insert_video, insert_video_log
+from app.db.repositories.video_repository import (
+    assign_next_pending_video_atomically,
+    get_assigned_in_review_video_for_moderator,
+    insert_video,
+    insert_video_log,
+)
 from app.schemas.video import AddVideoRequest, VideoResponse, VideoStatus
-from app.services.errors import VideoAlreadyExistsError
+from app.services.auth import decode_moderator_name
+from app.services.errors import NoVideoAvailableError, VideoAlreadyExistsError
 from sqlalchemy.exc import IntegrityError
 
 
@@ -46,4 +52,40 @@ def add_video(payload: AddVideoRequest) -> VideoResponse:
         video_id=inserted_video["video_id"],
         status=VideoStatus(inserted_video["status"]),
         assigned_to=inserted_video["assigned_to"],
+    )
+
+def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
+    moderator_name = decode_moderator_name(authorization_header)
+
+    with transaction() as connection:
+        assigned_video = get_assigned_in_review_video_for_moderator(
+            connection=connection,
+            moderator_name=moderator_name,
+        )
+        if assigned_video is not None:
+            return VideoResponse(
+                video_id=assigned_video["video_id"],
+                status=VideoStatus(assigned_video["status"]),
+                assigned_to=assigned_video["assigned_to"],
+            )
+
+        next_video = assign_next_pending_video_atomically(
+            connection=connection,
+            moderator_name=moderator_name,
+        )
+        if next_video is None:
+            raise NoVideoAvailableError
+
+        insert_video_log(
+            connection=connection,
+            video_id=next_video["video_id"],
+            event_type=VideoStatus.in_review.value,
+            moderator_name=moderator_name,
+            details="Video assigned to moderator",
+        )
+
+    return VideoResponse(
+        video_id=next_video["video_id"],
+        status=VideoStatus(next_video["status"]),
+        assigned_to=next_video["assigned_to"],
     )
