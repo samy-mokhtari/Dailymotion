@@ -1,0 +1,30 @@
+from enum import Enum
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class VideoStatus(str, Enum):
+    pending = "pending"
+    in_review = "in_review"
+    spam = "spam"
+    not_spam = "not_spam"
+
+class AddVideoRequest(BaseModel):
+    video_id: str = Field(..., min_length=1, max_length=255)
+
+    @field_validator("video_id")
+    @classmethod
+    def validate_video_id(cls, value: str) -> str:
+        cleaned_value = value.strip()
+        if not cleaned_value:
+            raise ValueError("video_id must not be blank")
+        return cleaned_value
+
+class VideoResponse(BaseModel):
+    video_id: str
+    status: VideoStatus
+    assigned_to: str | None = None
+
+class ErrorResponse(BaseModel):
+    detail: str
+    error_code: str | None = None
