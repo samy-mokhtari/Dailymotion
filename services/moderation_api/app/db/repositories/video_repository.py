@@ -54,3 +54,69 @@ def insert_video_log(
             "details": details,
         },
     )
+
+def get_assigned_in_review_video_for_moderator(
+    connection: Connection,
+    moderator_name: str,
+) -> dict[str, Any] | None:
+    query = text(
+        """
+        SELECT video_id, status, assigned_to
+        FROM videos
+        WHERE status = :status
+            AND assigned_to = :moderator_name
+        ORDER BY created_at ASC
+        LIMIT 1
+        """
+    )
+
+    result = connection.execute(
+        query,
+        {
+            "status": "in_review",
+            "moderator_name": moderator_name,
+        },
+    ).mappings().first()
+
+    if result is None:
+        return None
+
+    return dict(result)
+
+def assign_next_pending_video_atomically(
+    connection: Connection,
+    moderator_name: str,
+) -> dict[str, Any] | None:
+    query = text(
+        """
+        WITH next_video AS (
+            SELECT id
+            FROM videos
+            WHERE status = :pending_status
+                AND assigned_to IS NULL
+            ORDER BY created_at ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+        )
+        UPDATE videos
+        SET status = :in_review_status,
+            assigned_to = :moderator_name,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id IN (SELECT id FROM next_video)
+        RETURNING video_id, status, assigned_to
+        """
+    )
+
+    result = connection.execute(
+        query,
+        {
+            "pending_status": "pending",
+            "in_review_status": "in_review",
+            "moderator_name": moderator_name,
+        },
+    ).mappings().first()
+
+    if result is None:
+        return None
+
+    return dict(result)
