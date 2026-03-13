@@ -120,3 +120,59 @@ def assign_next_pending_video_atomically(
         return None
 
     return dict(result)
+
+def get_video_by_id(
+    connection: Connection,
+    video_id: str,
+) -> dict[str, Any] | None:
+    query = text(
+        """
+        SELECT video_id, status, assigned_to
+        FROM videos
+        WHERE video_id = :video_id
+        """
+    )
+
+    result = connection.execute(
+        query,
+        {"video_id": video_id},
+    ).mappings().first()
+
+    if result is None:
+        return None
+
+    return dict(result)
+
+
+def flag_video_atomically(
+    connection: Connection,
+    video_id: str,
+    moderator_name: str,
+    target_status: str,
+) -> dict[str, Any] | None:
+    query = text(
+        """
+        UPDATE videos
+        SET status = :target_status,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE video_id = :video_id
+            AND status = :in_review_status
+            AND assigned_to = :moderator_name
+        RETURNING video_id, status, assigned_to
+        """
+    )
+
+    result = connection.execute(
+        query,
+        {
+            "video_id": video_id,
+            "moderator_name": moderator_name,
+            "target_status": target_status,
+            "in_review_status": "in_review",
+        },
+    ).mappings().first()
+
+    if result is None:
+        return None
+
+    return dict(result)

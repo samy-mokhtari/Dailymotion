@@ -1,13 +1,26 @@
 from typing import Annotated
 
-from app.schemas.video import AddVideoRequest, ErrorResponse, VideoResponse
+from app.schemas.video import (
+    AddVideoRequest,
+    ErrorResponse,
+    FlagVideoRequest,
+    FlagVideoResponse,
+    VideoResponse,
+)
 from app.services.errors import (
     InvalidAuthorizationHeaderError,
     MissingAuthorizationHeaderError,
     NoVideoAvailableError,
     VideoAlreadyExistsError,
+    VideoAssignedToAnotherModeratorError,
+    VideoNotFlaggableError,
+    VideoNotFoundError,
 )
-from app.services.video_service import add_video, get_video_for_moderator
+from app.services.video_service import (
+    add_video,
+    flag_video_for_moderator,
+    get_video_for_moderator,
+)
 from fastapi import APIRouter, Header, status
 from fastapi.responses import JSONResponse
 
@@ -82,5 +95,78 @@ def get_video_endpoint(
             content={
                 "detail": "No video available",
                 "error_code": "no_video_available",
+            },
+        )
+
+@router.post(
+    "/flag_video",
+    response_model=FlagVideoResponse,
+    responses={
+        400: {
+            "model": ErrorResponse,
+            "description": "The Authorization header is invalid.",
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "The Authorization header is missing.",
+        },
+        403: {
+            "model": ErrorResponse,
+            "description": "The video is assigned to another moderator.",
+        },
+        404: {
+            "model": ErrorResponse,
+            "description": "The requested video does not exist.",
+        },
+        409: {
+            "model": ErrorResponse,
+            "description": "The video cannot be flagged in its current state.",
+        },
+    },
+)
+def flag_video_endpoint(
+    payload: FlagVideoRequest,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> FlagVideoResponse | JSONResponse:
+    try:
+        return flag_video_for_moderator(authorization, payload)
+    except MissingAuthorizationHeaderError:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={
+                "detail": "Missing Authorization header",
+                "error_code": "missing_authorization_header",
+            },
+        )
+    except InvalidAuthorizationHeaderError:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "detail": "Invalid Authorization header",
+                "error_code": "invalid_authorization_header",
+            },
+        )
+    except VideoAssignedToAnotherModeratorError:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "detail": "Video is assigned to another moderator",
+                "error_code": "video_assigned_to_another_moderator",
+            },
+        )
+    except VideoNotFoundError:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "detail": "Video not found",
+                "error_code": "video_not_found",
+            },
+        )
+    except VideoNotFlaggableError:
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "detail": "Video cannot be flagged in its current state",
+                "error_code": "video_not_flaggable",
             },
         )

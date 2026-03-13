@@ -1,13 +1,30 @@
 from app.db.connection import transaction
 from app.db.repositories.video_repository import (
     assign_next_pending_video_atomically,
+    flag_video_atomically,
     get_assigned_in_review_video_for_moderator,
+    get_video_by_id,
     insert_video,
     insert_video_log,
 )
-from app.schemas.video import AddVideoRequest, VideoResponse, VideoStatus
+from app.schemas.video import (
+    AddVideoRequest,
+    FlagVideoRequest,
+    FlagVideoResponse,
+    ModerationDecision,
+    VideoResponse,
+    VideoStatus,
+)
 from app.services.auth import decode_moderator_name
-from app.services.errors import NoVideoAvailableError, VideoAlreadyExistsError
+from app.services.errors import (
+    InvalidAuthorizationHeaderError,
+    MissingAuthorizationHeaderError,
+    NoVideoAvailableError,
+    VideoAlreadyExistsError,
+    VideoAssignedToAnotherModeratorError,
+    VideoNotFlaggableError,
+    VideoNotFoundError,
+)
 from sqlalchemy.exc import IntegrityError
 
 
@@ -88,4 +105,55 @@ def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
         video_id=next_video["video_id"],
         status=VideoStatus(next_video["status"]),
         assigned_to=next_video["assigned_to"],
+    )
+
+def _map_decision_to_db_status(decision: ModerationDecision) -> str:
+    if decision == ModerationDecision.spam:
+        return VideoStatus.spam.value
+    return VideoStatus.not_spam.value
+
+
+def flag_video_for_moderator(
+    authorization_header: str | None,
+    payload: FlagVideoRequest,
+) -> FlagVideoResponse:
+    moderator_name = decode_moderator_name(authorization_header)
+    target_db_status = _map_decision_to_db_status(payload.status)
+
+    with transaction() as connection:
+        current_video = get_video_by_id(
+            connection=connection,
+            video_id=payload.video_id,
+        )
+
+        if current_video is None:
+            raise VideoNotFoundError
+
+        if current_video["status"] != VideoStatus.in_review.value:
+            raise VideoNotFlaggableError
+
+        if current_video["assigned_to"] != moderator_name:
+            raise VideoAssignedToAnotherModeratorError
+
+        flagged_video = flag_video_atomically(
+            connection=connection,
+            video_id=payload.video_id,
+            moderator_name=moderator_name,
+            target_status=target_db_status,
+        )
+
+        if flagged_video is None:
+            raise VideoNotFlaggableError
+
+        insert_video_log(
+            connection=connection,
+            video_id=payload.video_id,
+            event_type=target_db_status,
+            moderator_name=moderator_name,
+            details="Video flagged by moderator",
+        )
+
+    return FlagVideoResponse(
+        video_id=flagged_video["video_id"],
+        status=payload.status,
     )

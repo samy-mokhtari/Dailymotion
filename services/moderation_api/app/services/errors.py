@@ -20,3 +20,11 @@ class InvalidAuthorizationHeaderError(ServiceError):
 
 class NoVideoAvailableError(ServiceError):
     """Raised when no pending video is available for moderation."""
+
+
+class VideoNotFlaggableError(ServiceError):
+    """Raised when a video cannot be flagged in its current state."""
+
+
+class VideoAssignedToAnotherModeratorError(ServiceError):
+    """Raised when a moderator tries to flag a video assigned to someone else."""
