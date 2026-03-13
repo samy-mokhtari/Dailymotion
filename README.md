@@ -371,12 +371,12 @@ If **video_id ends** with **404**, the service returns:
 
 ## Notes and design choices
 
-- PostgreSQL is used as the source of truth for the moderation domain.
-  -Redis is used only as a cache for the proxy API.
-  -SQLAlchemy Core is used instead of an ORM, in line with the technical constraints.
-  -Audit logging is implemented through the **video_logs** table. -**not spam** is exposed at API level, while not_spam is stored internally in the database.
-  -The moderation queue logic is implemented with SQL-level safeguards for FIFO and atomic assignment.
-  -The Proxy API uses a mocked upstream payload, as allowed by the test statement.
+- PostgreSQL is used as the source of truth for the moderation domain
+- Redis is used only as a cache for the proxy API.
+- SQLAlchemy Core is used instead of an ORM, in line with the technical constraints.
+- Audit logging is implemented through the **video_logs** table. -**not spam** is exposed at API level, while not_spam is stored internally in the database.
+- The moderation queue logic is implemented with SQL-level safeguards for FIFO and atomic assignment.
+- The Proxy API uses a mocked upstream payload, as allowed by the test statement.
 
 ## Manual validation examples
 
