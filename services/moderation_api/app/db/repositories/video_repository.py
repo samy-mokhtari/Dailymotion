@@ -195,3 +195,23 @@ def get_queue_stats(connection: Connection) -> dict[str, int]:
         "total_spam_videos": int(result["total_spam_videos"]),
         "total_not_spam_videos": int(result["total_not_spam_videos"]),
     }
+
+def get_video_logs(
+    connection: Connection,
+    video_id: str,
+) -> list[dict[str, Any]]:
+    query = text(
+        """
+        SELECT created_at, event_type, moderator_name
+        FROM video_logs
+        WHERE video_id = :video_id
+        ORDER BY created_at ASC, id ASC
+        """
+    )
+
+    results = connection.execute(
+        query,
+        {"video_id": video_id},
+    ).mappings().all()
+
+    return [dict(row) for row in results]

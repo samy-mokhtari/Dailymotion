@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
@@ -50,6 +51,11 @@ class StatsResponse(BaseModel):
     total_pending_videos: int
     total_spam_videos: int
     total_not_spam_videos: int
+
+class VideoLogEntryResponse(BaseModel):
+    date: datetime
+    status: str
+    moderator: str | None = None
 
 class ErrorResponse(BaseModel):
     detail: str

@@ -6,6 +6,7 @@ from app.schemas.video import (
     FlagVideoRequest,
     FlagVideoResponse,
     StatsResponse,
+    VideoLogEntryResponse,
     VideoResponse,
 )
 from app.services.errors import (
@@ -22,6 +23,7 @@ from app.services.video_service import (
     flag_video_for_moderator,
     get_stats,
     get_video_for_moderator,
+    get_video_log,
 )
 from fastapi import APIRouter, Header, status
 from fastapi.responses import JSONResponse
@@ -176,3 +178,25 @@ def flag_video_endpoint(
 @router.get("/stats")
 def get_stats_endpoint() -> StatsResponse:
     return get_stats()
+
+@router.get(
+    "/log_video/{video_id}",
+    response_model=list[VideoLogEntryResponse],
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "The requested video does not exist.",
+        },
+    },
+)
+def get_video_log_endpoint(video_id: str) -> list[VideoLogEntryResponse] | JSONResponse:
+    try:
+        return get_video_log(video_id)
+    except VideoNotFoundError:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={
+                "detail": "Video not found",
+                "error_code": "video_not_found",
+            },
+        )

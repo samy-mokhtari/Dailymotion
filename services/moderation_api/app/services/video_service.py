@@ -5,6 +5,7 @@ from app.db.repositories.video_repository import (
     get_assigned_in_review_video_for_moderator,
     get_queue_stats,
     get_video_by_id,
+    get_video_logs,
     insert_video,
     insert_video_log,
 )
@@ -14,6 +15,7 @@ from app.schemas.video import (
     FlagVideoResponse,
     ModerationDecision,
     StatsResponse,
+    VideoLogEntryResponse,
     VideoResponse,
     VideoStatus,
 )
@@ -169,3 +171,26 @@ def get_stats() -> StatsResponse:
         total_spam_videos=stats["total_spam_videos"],
         total_not_spam_videos=stats["total_not_spam_videos"],
     )
+
+def _map_log_event_type_to_api_status(event_type: str) -> str:
+    if event_type == "not_spam":
+        return "not spam"
+    return event_type
+
+
+def get_video_log(video_id: str) -> list[VideoLogEntryResponse]:
+    with transaction() as connection:
+        video = get_video_by_id(connection=connection, video_id=video_id)
+        if video is None:
+            raise VideoNotFoundError
+
+        logs = get_video_logs(connection=connection, video_id=video_id)
+
+    return [
+        VideoLogEntryResponse(
+            date=log["created_at"],
+            status=_map_log_event_type_to_api_status(log["event_type"]),
+            moderator=log["moderator_name"],
+        )
+        for log in logs
+    ]
