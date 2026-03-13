@@ -3,6 +3,7 @@ from app.db.repositories.video_repository import (
     assign_next_pending_video_atomically,
     flag_video_atomically,
     get_assigned_in_review_video_for_moderator,
+    get_queue_stats,
     get_video_by_id,
     insert_video,
     insert_video_log,
@@ -12,6 +13,7 @@ from app.schemas.video import (
     FlagVideoRequest,
     FlagVideoResponse,
     ModerationDecision,
+    StatsResponse,
     VideoResponse,
     VideoStatus,
 )
@@ -156,4 +158,14 @@ def flag_video_for_moderator(
     return FlagVideoResponse(
         video_id=flagged_video["video_id"],
         status=payload.status,
+    )
+
+def get_stats() -> StatsResponse:
+    with transaction() as connection:
+        stats = get_queue_stats(connection=connection)
+
+    return StatsResponse(
+        total_pending_videos=stats["total_pending_videos"],
+        total_spam_videos=stats["total_spam_videos"],
+        total_not_spam_videos=stats["total_not_spam_videos"],
     )

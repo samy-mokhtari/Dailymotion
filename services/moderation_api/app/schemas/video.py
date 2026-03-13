@@ -46,6 +46,11 @@ class FlagVideoResponse(BaseModel):
     video_id: str
     status: ModerationDecision
 
+class StatsResponse(BaseModel):
+    total_pending_videos: int
+    total_spam_videos: int
+    total_not_spam_videos: int
+
 class ErrorResponse(BaseModel):
     detail: str
     error_code: str | None = None

@@ -176,3 +176,22 @@ def flag_video_atomically(
         return None
 
     return dict(result)
+
+def get_queue_stats(connection: Connection) -> dict[str, int]:
+    query = text(
+        """
+        SELECT
+            COUNT(*) FILTER (WHERE status = 'pending') AS total_pending_videos,
+            COUNT(*) FILTER (WHERE status = 'spam') AS total_spam_videos,
+            COUNT(*) FILTER (WHERE status = 'not_spam') AS total_not_spam_videos
+        FROM videos
+        """
+    )
+
+    result = connection.execute(query).mappings().one()
+
+    return {
+        "total_pending_videos": int(result["total_pending_videos"]),
+        "total_spam_videos": int(result["total_spam_videos"]),
+        "total_not_spam_videos": int(result["total_not_spam_videos"]),
+    }

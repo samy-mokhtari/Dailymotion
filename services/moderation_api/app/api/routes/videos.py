@@ -5,6 +5,7 @@ from app.schemas.video import (
     ErrorResponse,
     FlagVideoRequest,
     FlagVideoResponse,
+    StatsResponse,
     VideoResponse,
 )
 from app.services.errors import (
@@ -19,6 +20,7 @@ from app.services.errors import (
 from app.services.video_service import (
     add_video,
     flag_video_for_moderator,
+    get_stats,
     get_video_for_moderator,
 )
 from fastapi import APIRouter, Header, status
@@ -170,3 +172,7 @@ def flag_video_endpoint(
                 "error_code": "video_not_flaggable",
             },
         )
+
+@router.get("/stats")
+def get_stats_endpoint() -> StatsResponse:
+    return get_stats()
