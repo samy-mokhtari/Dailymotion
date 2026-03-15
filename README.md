@@ -29,31 +29,21 @@ This document includes:
 
 The Moderation API exposes the moderation workflow endpoints:
 
-```text
-POST /add_video
-```
+`POST /add_video`
 
-```text
-GET /get_video
-```
+`GET /get_video`
 
-```text
-POST /flag_video
-```
+`POST /flag_video`
 
-```text
-GET /stats
-```
+`GET /stats`
 
-```text
-GET /log_video/{video_id}
-```
+`GET /log_video/{video_id}`
 
 Implemented behaviors:
 
-- videos are inserted in the queue with status pending
+- videos are inserted in the queue with status `pending`
 - the moderation queue follows FIFO
-- the same moderator always gets the same in_review video until it is flagged
+- the same moderator always gets the same `in_review` video until it is flagged
 - different moderators get different videos
 - moderation decisions are persisted in PostgreSQL
 - audit logs are recorded for each relevant state transition
@@ -62,13 +52,11 @@ Implemented behaviors:
 
 The Proxy API exposes:
 
-```text
-GET /get_video_info/{video_id}
-```
+`GET /get_video_info/{video_id}`
 
 Implemented behaviors:
 
-- if video_id ends with **404**, the API returns **404 Not Found**
+- if `video_id` ends with `404`, the API returns `404 Not Found`
 - otherwise, the API returns a coherent mocked video payload
 - responses are cached in Redis
 - cache hits and cache misses are transparent to the client
@@ -214,7 +202,8 @@ docker compose up -d --build
 - PostgreSQL (host access): localhost:5433
 - Redis (host access): localhost:6379
 
-**POST /add_video**
+### `POST /add_video`
+
 Adds a video to the moderation queue.
 
 Request
@@ -239,7 +228,8 @@ Success response
 }
 ```
 
-**GET /get_video**
+### `GET /get_video`
+
 Returns the current video for a moderator, or assigns the next pending one.
 
 Required header
@@ -264,8 +254,9 @@ Success response
 }
 ```
 
-**POST /flag_video**
-Flags an in_review video as spam or not spam.
+### `POST /flag_video`
+
+Flags an `in_review` video as `spam` or `not spam`.
 
 Required header
 
@@ -294,7 +285,8 @@ Success response
 }
 ```
 
-**GET /stats**
+### `GET /stats`
+
 Returns moderation counters.
 
 ```http
@@ -310,7 +302,8 @@ Success response
 }
 ```
 
-**GET /log_video/{video_id}**
+### `GET /log_video/{video_id}`
+
 Returns the audit history of a video.
 
 ```http
@@ -338,7 +331,8 @@ Success response
 ]
 ```
 
-**GET /get_video_info/{video_id}**
+### `GET /get_video_info/{video_id}`
+
 Returns video information through the proxy API.
 
 ```html
@@ -356,7 +350,7 @@ Success response 200 OK
 ```
 
 Not found rule
-If **video_id ends** with **404**, the service returns:
+If `video_id ends` with `404`, the service returns:
 
 ```http
 404 Not Found
@@ -374,9 +368,13 @@ If **video_id ends** with **404**, the service returns:
 - PostgreSQL is used as the source of truth for the moderation domain
 - Redis is used only as a cache for the proxy API.
 - SQLAlchemy Core is used instead of an ORM, in line with the technical constraints.
-- Audit logging is implemented through the **video_logs** table. -**not spam** is exposed at API level, while not_spam is stored internally in the database.
+- Audit logging is implemented through the `video_logs` table.
+- `not spam` is exposed at API level, while `not_spam` is stored internally in the database.
 - The moderation queue logic is implemented with SQL-level safeguards for FIFO and atomic assignment.
 - The Proxy API uses a mocked upstream payload, as allowed by the test statement.
+- The HTTP routes intentionally follow the technical test specification to stay aligned with the expected integration contract. In a greenfield production API, a more resource-oriented REST naming scheme could be preferred.
+- For this technical test, the `Authorization` header is used only as a simple moderator identifier, as described in the specification examples. The base64 encoding used here is not a security mechanism and should not be considered authentication.
+- In a production application, a proper authentication and authorization system would be implemented. The `Authorization` header would typically carry valid Basic or Bearer credentials, and the moderator identity would be derived from the authenticated user context rather than from a plain base64-encoded name.
 
 ## Manual validation examples
 
