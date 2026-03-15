@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import pytest
 from app.db.connection import transaction
 from app.db.repositories.video_repository import flag_video_atomically, get_video_by_id
@@ -14,7 +16,7 @@ from tests.test_video_repository import _seed_video
 def test_add_video_request_accepts_valid_video_id() -> None:
     payload = AddVideoRequest(video_id="abc123")
 
-    assert payload.video_id == "abc123"
+    assert (payload.video_id) == "abc123"
 
 
 def test_add_video_request_strips_video_id() -> None:
@@ -86,7 +88,8 @@ def test_get_video_by_id_returns_video_when_it_exists() -> None:
     with transaction() as connection:
         result = get_video_by_id(connection=connection, video_id="video-flag-001")
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-flag-001",
         "status": "in_review",
         "assigned_to": "john.doe",
@@ -115,7 +118,8 @@ def test_flag_video_atomically_updates_video_for_assigned_moderator() -> None:
             target_status="spam",
         )
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-flag-010",
         "status": "spam",
         "assigned_to": "john.doe",
@@ -155,4 +159,5 @@ def test_flag_video_atomically_returns_none_when_video_is_assigned_to_other_mode
             target_status="spam",
         )
 
+    assert result is None
     assert result is None

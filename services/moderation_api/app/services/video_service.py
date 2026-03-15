@@ -70,9 +70,9 @@ def add_video(payload: AddVideoRequest) -> VideoResponse:
         raise
 
     return VideoResponse(
-        video_id=inserted_video["video_id"],
-        status=VideoStatus(inserted_video["status"]),
-        assigned_to=inserted_video["assigned_to"],
+        video_id=inserted_video.video_id,
+        status=VideoStatus(inserted_video.status),
+        assigned_to=inserted_video.assigned_to,
     )
 
 def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
@@ -85,9 +85,9 @@ def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
         )
         if assigned_video is not None:
             return VideoResponse(
-                video_id=assigned_video["video_id"],
-                status=VideoStatus(assigned_video["status"]),
-                assigned_to=assigned_video["assigned_to"],
+                video_id=assigned_video.video_id,
+                status=VideoStatus(assigned_video.status),
+                assigned_to=assigned_video.assigned_to,
             )
 
         next_video = assign_next_pending_video_atomically(
@@ -99,16 +99,16 @@ def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
 
         insert_video_log(
             connection=connection,
-            video_id=next_video["video_id"],
+            video_id=next_video.video_id,
             event_type=VideoStatus.in_review.value,
             moderator_name=moderator_name,
             details="Video assigned to moderator",
         )
 
     return VideoResponse(
-        video_id=next_video["video_id"],
-        status=VideoStatus(next_video["status"]),
-        assigned_to=next_video["assigned_to"],
+        video_id=next_video.video_id,
+        status=VideoStatus(next_video.status),
+        assigned_to=next_video.assigned_to,
     )
 
 def _map_decision_to_db_status(decision: ModerationDecision) -> str:
@@ -133,10 +133,10 @@ def flag_video_for_moderator(
         if current_video is None:
             raise VideoNotFoundError
 
-        if current_video["status"] != VideoStatus.in_review.value:
+        if current_video.status != VideoStatus.in_review.value:
             raise VideoNotFlaggableError
 
-        if current_video["assigned_to"] != moderator_name:
+        if current_video.assigned_to != moderator_name:
             raise VideoAssignedToAnotherModeratorError
 
         flagged_video = flag_video_atomically(
@@ -158,7 +158,7 @@ def flag_video_for_moderator(
         )
 
     return FlagVideoResponse(
-        video_id=flagged_video["video_id"],
+        video_id=flagged_video.video_id,
         status=payload.status,
     )
 
@@ -167,9 +167,9 @@ def get_stats() -> StatsResponse:
         stats = get_queue_stats(connection=connection)
 
     return StatsResponse(
-        total_pending_videos=stats["total_pending_videos"],
-        total_spam_videos=stats["total_spam_videos"],
-        total_not_spam_videos=stats["total_not_spam_videos"],
+        total_pending_videos=stats.total_pending_videos,
+        total_spam_videos=stats.total_spam_videos,
+        total_not_spam_videos=stats.total_not_spam_videos,
     )
 
 def _map_log_event_type_to_api_status(event_type: str) -> str:
@@ -188,9 +188,9 @@ def get_video_log(video_id: str) -> list[VideoLogEntryResponse]:
 
     return [
         VideoLogEntryResponse(
-            date=log["created_at"],
-            status=_map_log_event_type_to_api_status(log["event_type"]),
-            moderator=log["moderator_name"],
+            date=log.created_at,
+            status=_map_log_event_type_to_api_status(log.event_type),
+            moderator=log.moderator_name,
         )
         for log in logs
     ]

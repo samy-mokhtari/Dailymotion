@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from datetime import datetime, timezone
 
 from app.db.connection import get_connection, transaction
@@ -8,6 +9,7 @@ from app.db.repositories.video_repository import (
 )
 from app.schemas.video import VideoStatus
 from sqlalchemy import text
+from sqlalchemy.engine import RowMapping
 
 
 def _seed_video(
@@ -72,7 +74,8 @@ def test_get_assigned_in_review_video_for_moderator_returns_matching_video() -> 
             moderator_name="john.doe",
         )
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-001",
         "status": "in_review",
         "assigned_to": "john.doe",
@@ -138,7 +141,8 @@ def test_assign_next_pending_video_atomically_returns_oldest_pending_video() -> 
             moderator_name="john.doe",
         )
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-oldest",
         "status": "in_review",
         "assigned_to": "john.doe",
@@ -157,7 +161,8 @@ def test_assign_next_pending_video_atomically_updates_video_state_in_database() 
             moderator_name="john.doe",
         )
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-010",
         "status": "in_review",
         "assigned_to": "john.doe",
@@ -211,7 +216,8 @@ def test_assign_next_pending_video_atomically_ignores_already_in_review_videos()
             moderator_name="john.doe",
         )
 
-    assert result == {
+    assert result is not None
+    assert asdict(result) == {
         "video_id": "video-pending",
         "status": "in_review",
         "assigned_to": "john.doe",
@@ -242,12 +248,15 @@ def test_assign_next_pending_video_atomically_does_not_reassign_same_video_on_se
             moderator_name="jane.doe",
         )
 
-    assert first_result == {
+    assert first_result is not None
+    assert asdict(first_result) == {
         "video_id": "video-100",
         "status": "in_review",
         "assigned_to": "john.doe",
     }
-    assert second_result == {
+
+    assert second_result is not None
+    assert asdict(second_result) == {
         "video_id": "video-200",
         "status": "in_review",
         "assigned_to": "jane.doe",

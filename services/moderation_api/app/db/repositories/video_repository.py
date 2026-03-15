@@ -1,16 +1,40 @@
 from collections.abc import Mapping
 from typing import Any
 
+from app.db.rows import QueueStatsRow, VideoLogRow, VideoRow
 from sqlalchemy import text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
+
+def _to_video_row(row: RowMapping) -> VideoRow:
+    return VideoRow(
+        video_id=str(row["video_id"]),
+        status=str(row["status"]),
+        assigned_to=row["assigned_to"],
+    )
+
+
+def _to_video_log_row(row: RowMapping) -> VideoLogRow:
+    return VideoLogRow(
+        created_at=row["created_at"],
+        event_type=str(row["event_type"]),
+        moderator_name=row["moderator_name"],
+    )
+
+
+def _to_queue_stats_row(row: RowMapping) -> QueueStatsRow:
+    return QueueStatsRow(
+        total_pending_videos=int(row["total_pending_videos"]),
+        total_spam_videos=int(row["total_spam_videos"]),
+        total_not_spam_videos=int(row["total_not_spam_videos"]),
+    )
 
 def insert_video(
     connection: Connection,
     video_id: str,
     status: str,
     assigned_to: str | None = None,
-) -> Mapping[str, Any]:
+) -> VideoRow:
     query = text(
         """
         INSERT INTO videos (video_id, status, assigned_to, updated_at)
@@ -26,9 +50,9 @@ def insert_video(
             "status": status,
             "assigned_to": assigned_to,
         },
-    )
+    ).mappings().one()
 
-    return dict(result.mappings().one())
+    return _to_video_row(result)
 
 
 def insert_video_log(
@@ -58,7 +82,7 @@ def insert_video_log(
 def get_assigned_in_review_video_for_moderator(
     connection: Connection,
     moderator_name: str,
-) -> dict[str, Any] | None:
+) -> VideoRow | None:
     query = text(
         """
         SELECT video_id, status, assigned_to
@@ -81,12 +105,12 @@ def get_assigned_in_review_video_for_moderator(
     if result is None:
         return None
 
-    return dict(result)
+    return _to_video_row(result)
 
 def assign_next_pending_video_atomically(
     connection: Connection,
     moderator_name: str,
-) -> dict[str, Any] | None:
+) -> VideoRow | None:
     query = text(
         """
         WITH next_video AS (
@@ -119,12 +143,12 @@ def assign_next_pending_video_atomically(
     if result is None:
         return None
 
-    return dict(result)
+    return _to_video_row(result)
 
 def get_video_by_id(
     connection: Connection,
     video_id: str,
-) -> dict[str, Any] | None:
+) -> VideoRow | None:
     query = text(
         """
         SELECT video_id, status, assigned_to
@@ -141,7 +165,7 @@ def get_video_by_id(
     if result is None:
         return None
 
-    return dict(result)
+    return _to_video_row(result)
 
 
 def flag_video_atomically(
@@ -149,7 +173,7 @@ def flag_video_atomically(
     video_id: str,
     moderator_name: str,
     target_status: str,
-) -> dict[str, Any] | None:
+) -> VideoRow | None:
     query = text(
         """
         UPDATE videos
@@ -175,9 +199,9 @@ def flag_video_atomically(
     if result is None:
         return None
 
-    return dict(result)
+    return _to_video_row(result)
 
-def get_queue_stats(connection: Connection) -> dict[str, int]:
+def get_queue_stats(connection: Connection) -> QueueStatsRow:
     query = text(
         """
         SELECT
@@ -190,16 +214,12 @@ def get_queue_stats(connection: Connection) -> dict[str, int]:
 
     result = connection.execute(query).mappings().one()
 
-    return {
-        "total_pending_videos": int(result["total_pending_videos"]),
-        "total_spam_videos": int(result["total_spam_videos"]),
-        "total_not_spam_videos": int(result["total_not_spam_videos"]),
-    }
+    return _to_queue_stats_row(result)
 
 def get_video_logs(
     connection: Connection,
     video_id: str,
-) -> list[dict[str, Any]]:
+) -> list[VideoLogRow]:
     query = text(
         """
         SELECT created_at, event_type, moderator_name
@@ -214,4 +234,4 @@ def get_video_logs(
         {"video_id": video_id},
     ).mappings().all()
 
-    return [dict(row) for row in results]
+    return [_to_video_log_row(row) for row in results]
