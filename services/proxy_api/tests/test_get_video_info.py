@@ -1,4 +1,5 @@
 from app.cache.redis_client import build_video_info_cache_key, get_redis_client
+from app.schemas.video import VideoInfoResponse
 from app.services import proxy_service
 from fastapi.testclient import TestClient
 
@@ -48,16 +49,16 @@ def test_get_video_info_uses_cache_on_second_call(
 ) -> None:
     call_count = 0
 
-    def fake_build_mock_video_info(video_id: str) -> dict[str, str]:
+    def fake_build_mock_video_info(video_id: str) -> VideoInfoResponse | None:
         nonlocal call_count
         call_count += 1
-        return {
-            "title": "Dailymotion Spirit Movie",
-            "channel": "creation",
-            "owner": "Dailymotion",
-            "filmstrip_60_url": f"https://www.dailymotion.com/thumbnail/video/{video_id}",
-            "embed_url": f"https://www.dailymotion.com/embed/video/{video_id}",
-        }
+        return VideoInfoResponse(
+            title="Dailymotion Spirit Movie",
+            channel="creation",
+            owner="Dailymotion",
+            filmstrip_60_url=f"https://www.dailymotion.com/thumbnail/video/{video_id}",
+            embed_url=f"https://www.dailymotion.com/embed/video/{video_id}",
+        )
 
     monkeypatch.setattr(
         proxy_service,
