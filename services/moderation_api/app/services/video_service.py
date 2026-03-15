@@ -114,7 +114,9 @@ def get_video_for_moderator(authorization_header: str | None) -> VideoResponse:
 def _map_decision_to_db_status(decision: ModerationDecision) -> str:
     if decision == ModerationDecision.spam:
         return VideoStatus.spam.value
-    return VideoStatus.not_spam.value
+    if decision == ModerationDecision.not_spam:
+        return VideoStatus.not_spam.value
+    raise ValueError(f"Unsupported moderation decision: {decision}")
 
 
 def flag_video_for_moderator(
